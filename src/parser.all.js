@@ -7,6 +7,7 @@ import { parse as mysql } from '../pegjs/mysql.pegjs'
 import { parse as mariadb } from '../pegjs/mariadb.pegjs'
 import { parse as noql } from '../pegjs/noql.pegjs'
 import { parse as postgresql } from '../pegjs/postgresql.pegjs'
+import { parse as datafusionsql } from '../pegjs/datafusionsql.pegjs'
 import { parse as redshift } from '../pegjs/redshift.pegjs'
 import { parse as sqlite } from '../pegjs/sqlite.pegjs'
 import { parse as transactsql } from '../pegjs/transactsql.pegjs'
@@ -23,6 +24,7 @@ export default {
   mariadb,
   noql,
   postgresql,
+  datafusionsql,
   redshift,
   snowflake,
   sqlite,
