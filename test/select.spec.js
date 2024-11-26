@@ -1437,6 +1437,68 @@ describe('select', () => {
     })
   })
 
+  describe('datafusionsql', () => {
+    const opt = {
+      database: 'datafusionsql'
+    }
+    it('should properly escape column aliases that contain special characters', () => {
+      const sql = `select column_name as "Column Name" from table_name`
+      expect(getParsedSql(sql, opt)).to.equal('SELECT column_name AS "Column Name" FROM "table_name"')
+    })
+
+    it('should support union in in_op', () => {
+      const sql = `select 1 from pg_database a where a.oid in
+        (
+      select 1 from pg_database b where b.oid = 1
+      union
+      select 1 from pg_database c where c.oid=2
+      )`
+      expect(getParsedSql(sql, opt)).to.be.equal('SELECT 1 FROM "pg_database" AS "a" WHERE "a".oid IN (SELECT 1 FROM "pg_database" AS "b" WHERE "b".oid = 1 UNION SELECT 1 FROM "pg_database" AS "c" WHERE "c".oid = 2)')
+    })
+
+    it('should support union distinct in in_op', () => {
+      const sql = `select 1 from pg_database a where a.oid in
+        (
+      select 1 from pg_database b where b.oid = 1
+      union distinct
+      select 1 from pg_database c where c.oid=2
+      )`
+      expect(getParsedSql(sql, opt)).to.be.equal('SELECT 1 FROM "pg_database" AS "a" WHERE "a".oid IN (SELECT 1 FROM "pg_database" AS "b" WHERE "b".oid = 1 UNION DISTINCT SELECT 1 FROM "pg_database" AS "c" WHERE "c".oid = 2)')
+    })
+
+    it('should support array_agg', () => {
+      let sql = `SELECT shipmentId, ARRAY_AGG(distinct abc order by name) AS shipmentStopIDs, ARRAY_AGG (first_name || ' ' || last_name) actors FROM table_name GROUP BY shipmentId`
+      expect(getParsedSql(sql, opt)).to.equal('SELECT shipmentId, ARRAY_AGG(DISTINCT abc ORDER BY name ASC) AS "shipmentStopIDs", ARRAY_AGG(first_name || \' \' || last_name) AS "actors" FROM "table_name" GROUP BY shipmentId')
+      sql = 'select pg_catalog.array_agg(c1 order by c2) from t1'
+      expect(getParsedSql(sql, opt)).to.equal('SELECT pg_catalog.ARRAY_AGG(c1 ORDER BY c2 ASC) FROM "t1"')
+    })
+
+    it('should support array_agg in coalesce', () => {
+      const sql = `SELECT COALESCE(array_agg(DISTINCT(a.xx)), Array[]::text[]) AS "distinctName" FROM public."Users" a1`
+      expect(getParsedSql(sql, opt)).to.equal('SELECT COALESCE(ARRAY_AGG(DISTINCT ("a".xx)), ARRAY[]::TEXT[]) AS "distinctName" FROM "public"."Users" AS "a1"')
+    })
+
+    it('should support ilike', () => {
+      const sql = `select column_name as "Column Name" from table_name where a ilike 'f%' and 'b' not ilike 'B'`
+      expect(getParsedSql(sql, opt)).to.equal('SELECT column_name AS "Column Name" FROM "table_name" WHERE a ILIKE \'f%\' AND \'b\' NOT ILIKE \'B\'')
+    })
+
+    it('should support like and', () => {
+      const sql = `SELECT "contact"."_id" FROM "contact" WHERE LOWER("contact"."name.givenName") LIKE 'yan%' AND LOWER("contact"."name.familyName") LIKE 'ei%';`
+      expect(getParsedSql(sql, opt)).to.equal(`SELECT "contact"."_id" FROM "contact" WHERE LOWER("contact"."name.givenName") LIKE 'yan%' AND LOWER("contact"."name.familyName") LIKE 'ei%'`)
+    })
+
+    it('should support left', () => {
+      const sql = 'SELECT * FROM partitions WHERE "location"  IS null AND "code" <> left("name", length("code"))'
+      expect(getParsedSql(sql, opt)).to.equal('SELECT * FROM "partitions" WHERE "location" IS NULL AND "code" <> left("name", length("code"))')
+    })
+
+    it('should support try_cast', () => {
+      const sql = 'SELECT try_cast("10" as INT) as num FROM partitions'
+      expect(getParsedSql(sql, opt)).to.equal('SELECT try_cast("10" as INT) as num FROM partitions')
+    })
+  })
+
 
   describe('unknown type check', () => {
     it('should throw error', () => {
